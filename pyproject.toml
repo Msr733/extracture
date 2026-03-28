@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "extracture"
+version = "0.1.0"
+description = "High-accuracy, schema-driven document extraction with multi-model consensus, grounding verification, and human-in-the-loop correction."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Extracture Contributors", email = "dev@extracture.com" },
+]
+keywords = ["document-extraction", "ocr", "llm", "pdf", "structured-output", "pydantic"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: General",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "litellm>=1.40",
+    "pymupdf>=1.24",
+    "pillow>=10.0",
+    "rapidfuzz>=3.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+surya = ["surya-ocr>=0.6"]
+paddleocr = ["paddleocr>=2.7", "paddlepaddle>=2.6"]
+tesseract = ["pytesseract>=0.3"]
+doctr = ["python-doctr>=0.8"]
+textract = ["boto3>=1.28"]
+grounding = ["transformers>=4.40", "torch>=2.0"]
+all-ocr = ["surya-ocr>=0.6", "paddleocr>=2.7", "paddlepaddle>=2.6", "pytesseract>=0.3", "python-doctr>=0.8", "boto3>=1.28"]
+all = ["extracture[all-ocr,grounding]"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+extracture = "extracture.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/extracture/extracture"
+Documentation = "https://extracture.dev"
+Repository = "https://github.com/extracture/extracture"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/extracture"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
