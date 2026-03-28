@@ -8,7 +8,7 @@ from typing import Any
 
 from rapidfuzz import fuzz
 
-from extracture.models import BoundingBox, FieldResult, IngestResult, RawExtraction
+from extracture.models import BoundingBox, FieldResult, RawExtraction
 from extracture.providers.base import OCRProvider
 from extracture.schema import ExtractionSchema
 

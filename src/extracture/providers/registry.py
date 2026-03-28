@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from extracture.config import ExtractureConfig
 from extracture.providers.base import ExtractionProvider, OCRProvider

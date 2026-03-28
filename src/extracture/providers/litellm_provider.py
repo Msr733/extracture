@@ -9,7 +9,7 @@ import time
 from typing import Any
 
 from extracture.config import ExtractureConfig, get_config
-from extracture.models import BoundingBox, FieldResult, IngestResult, RawExtraction
+from extracture.models import FieldResult, IngestResult, RawExtraction
 from extracture.providers.base import ExtractionProvider
 from extracture.schema import ExtractionSchema
 

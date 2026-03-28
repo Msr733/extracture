@@ -8,6 +8,7 @@ catches an additional 30-50% of remaining errors.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any
@@ -16,7 +17,6 @@ from extracture.config import ExtractureConfig, get_config
 from extracture.consensus.engine import ConsensusEngine
 from extracture.models import (
     ExtractionAudit,
-    ExtractionMethod,
     ExtractionResult,
     ExtractionStatus,
     FieldResult,
@@ -323,7 +323,6 @@ class AgenticExtractor:
     ) -> dict[str, FieldResult] | None:
         """Self-correct extraction based on validation errors."""
         try:
-            import litellm
 
             error_descriptions = "\n".join(
                 f"- {e.message} (affects: {', '.join(e.affected_fields)})"
@@ -340,7 +339,7 @@ class AgenticExtractor:
             for e in validation_errors:
                 affected_fields.update(e.affected_fields)
 
-            prompt = (
+            (
                 f"I extracted data from a {schema.form_title} but found validation errors:\n"
                 f"{error_descriptions}\n\n"
                 f"Current extracted values:\n"
@@ -405,7 +404,3 @@ class AgenticExtractor:
             return ReviewDecision.PARTIAL_REVIEW
 
         return ReviewDecision.AUTO_ACCEPT
-
-
-# Need this import for self_correct
-import json

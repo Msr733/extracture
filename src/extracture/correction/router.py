@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 
 from extracture.config import ExtractureConfig, get_config
-from extracture.models import ExtractionResult, FieldResult, ReviewDecision, ValidationError
+from extracture.models import ExtractionResult, FieldResult, ReviewDecision
 
 logger = logging.getLogger(__name__)
 
@@ -64,28 +64,28 @@ class HITLRouter:
                     )
 
         # Check field-level confidence
-        for field_name, field in result.fields.items():
-            if field.value is None:
+        for field_name, field_val in result.fields.items():
+            if field_val.value is None:
                 continue
             if field_name in error_fields:
                 continue  # Already flagged
 
-            if field.effective_confidence < self.config.auto_accept_threshold:
+            if field_val.effective_confidence < self.config.auto_accept_threshold:
                 items.append(
                     ReviewItem(
                         field_name=field_name,
-                        current_value=field.value,
-                        confidence=field.effective_confidence,
-                        reason=f"low_confidence ({field.effective_confidence:.2f})",
+                        current_value=field_val.value,
+                        confidence=field_val.effective_confidence,
+                        reason=f"low_confidence ({field_val.effective_confidence:.2f})",
                     )
                 )
 
-            elif field.is_grounded is False:
+            elif field_val.is_grounded is False:
                 items.append(
                     ReviewItem(
                         field_name=field_name,
-                        current_value=field.value,
-                        confidence=field.effective_confidence,
+                        current_value=field_val.value,
+                        confidence=field_val.effective_confidence,
                         reason="ungrounded",
                     )
                 )

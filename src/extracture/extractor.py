@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
 from extracture.agentic.extractor import AgenticExtractor
-from extracture.config import ExtractureConfig, get_config
+from extracture.config import get_config
 from extracture.consensus.engine import ConsensusEngine
 from extracture.correction.router import HITLRouter, ReviewQueue
 from extracture.correction.store import CorrectionStore
@@ -189,7 +190,7 @@ class Extractor:
             file_bytes = Path(source).read_bytes()
 
         # Step 1: Ingest
-        logger.info(f"Ingesting document...")
+        logger.info("Ingesting document...")
         ingest_result = self._ingest_router.ingest(source, file_type)
 
         # Step 2: Try template extraction first (520x faster, 3700x cheaper)

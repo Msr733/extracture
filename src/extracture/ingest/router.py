@@ -5,12 +5,11 @@ from __future__ import annotations
 import io
 import logging
 from pathlib import Path
-from typing import Any
 
 from extracture.config import ExtractureConfig, get_config
 from extracture.ingest.pdf import PDFParser
-from extracture.ingest.preprocessor import Preprocessor, QualityAssessment
-from extracture.models import ExtractionMethod, IngestResult, PageDimensions, WordPosition
+from extracture.ingest.preprocessor import Preprocessor
+from extracture.models import ExtractionMethod, IngestResult, WordPosition
 
 logger = logging.getLogger(__name__)
 
@@ -202,15 +201,15 @@ class IngestRouter:
         from PIL import Image
 
         try:
-            from surya.recognition import RecognitionPredictor
             from surya.detection import DetectionPredictor
+            from surya.recognition import RecognitionPredictor
 
             det_predictor = DetectionPredictor()
             rec_predictor = RecognitionPredictor()
         except ImportError:
-            from surya.ocr import run_ocr
             from surya.model.detection.model import load_model as load_det_model
             from surya.model.recognition.model import load_model as load_rec_model
+            from surya.ocr import run_ocr
 
             det_model = load_det_model()
             rec_model = load_rec_model()
@@ -274,9 +273,9 @@ class IngestRouter:
         return "\n\n".join(all_text_parts), all_words_list
 
     def _ocr_paddleocr(self, page_images: list[bytes]) -> tuple[str, list[WordPosition]]:
+        import numpy as np
         from paddleocr import PaddleOCR
         from PIL import Image
-        import numpy as np
 
         ocr = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
 

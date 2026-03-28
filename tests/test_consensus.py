@@ -1,6 +1,5 @@
 """Tests for the consensus engine."""
 
-import pytest
 
 from extracture.consensus.engine import ConsensusEngine
 from extracture.models import BoundingBox, FieldResult, RawExtraction

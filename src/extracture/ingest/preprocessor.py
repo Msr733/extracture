@@ -37,8 +37,8 @@ class Preprocessor:
     def assess_quality(self, image_bytes: bytes) -> QualityAssessment:
         """Assess image quality to determine which preprocessing steps are needed."""
         try:
-            from PIL import Image
             import numpy as np
+            from PIL import Image
 
             img = Image.open(io.BytesIO(image_bytes))
             arr = np.array(img.convert("L"))  # Grayscale
@@ -102,7 +102,6 @@ class Preprocessor:
 
         try:
             from PIL import Image
-            import numpy as np
 
             img = Image.open(io.BytesIO(image_bytes))
             steps: list[str] = []

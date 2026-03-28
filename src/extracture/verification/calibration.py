@@ -34,14 +34,14 @@ class ConfidenceCalibrator:
         if raw_confidence >= 1.0:
             return 1.0
 
-        T = self.temperatures.get(field_name, self.default_temperature)
+        temp = self.temperatures.get(field_name, self.default_temperature)
 
-        if T == 1.0:
+        if temp == 1.0:
             return raw_confidence
 
         # Convert to logit, scale, convert back
         logit = math.log(raw_confidence / (1.0 - raw_confidence + 1e-10))
-        scaled_logit = logit / T
+        scaled_logit = logit / temp
         calibrated = 1.0 / (1.0 + math.exp(-scaled_logit))
 
         return round(max(0.0, min(1.0, calibrated)), 4)
@@ -79,9 +79,9 @@ class ConfidenceCalibrator:
             field_data.setdefault(field_name, []).append((conf, correct))
 
         for field_name, data in field_data.items():
-            T = self._fit_temperature(data, lr=lr, max_iter=max_iter)
-            self.temperatures[field_name] = T
-            logger.info(f"Calibrated {field_name}: T={T:.3f}")
+            temp = self._fit_temperature(data, lr=lr, max_iter=max_iter)
+            self.temperatures[field_name] = temp
+            logger.info(f"Calibrated {field_name}: T={temp:.3f}")
 
     def _fit_temperature(
         self,
@@ -90,7 +90,7 @@ class ConfidenceCalibrator:
         max_iter: int = 100,
     ) -> float:
         """Fit a single temperature parameter using NLL minimization."""
-        T = 1.5  # Start slightly overconfidence-correcting
+        temp = 1.5  # Start slightly overconfidence-correcting
 
         for _ in range(max_iter):
             grad = 0.0
@@ -99,18 +99,18 @@ class ConfidenceCalibrator:
                     continue
 
                 logit = math.log(conf / (1.0 - conf + 1e-10))
-                scaled_logit = logit / T
+                scaled_logit = logit / temp
                 calibrated = 1.0 / (1.0 + math.exp(-scaled_logit))
 
-                # Gradient of NLL w.r.t. T
+                # Gradient of NLL w.r.t. temp
                 target = 1.0 if correct else 0.0
-                grad += (calibrated - target) * (-logit / (T * T)) * calibrated * (1 - calibrated)
+                grad += (calibrated - target) * (-logit / (temp * temp)) * calibrated * (1 - calibrated)
 
             grad /= len(data)
-            T -= lr * grad
-            T = max(0.1, min(10.0, T))  # Clamp
+            temp -= lr * grad
+            temp = max(0.1, min(10.0, temp))  # Clamp
 
-        return round(T, 4)
+        return round(temp, 4)
 
     def compute_ece(
         self, predictions: list[tuple[float, bool]], n_bins: int = 10

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, get_type_hints
+from typing import Any, get_type_hints
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
