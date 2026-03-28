@@ -105,7 +105,7 @@ class ExtractionSchema:
         """Build a tool/function calling schema for LLM providers."""
         json_schema = self.get_json_schema()
 
-        extraction_schema = {
+        extraction_schema: dict[str, Any] = {
             "type": "object",
             "properties": {},
             "required": [],

@@ -52,7 +52,7 @@ class AgenticExtractor:
         self.consensus = consensus_engine or ConsensusEngine()
         self.grounding = grounding_verifier
         self.calibrator = calibrator or ConfidenceCalibrator()
-        self.validator = validator or CrossFieldValidator()
+        self.validator: CrossFieldValidator = validator or CrossFieldValidator()
         self.config = config or get_config()
 
     async def extract(
@@ -60,7 +60,7 @@ class AgenticExtractor:
         schema: ExtractionSchema,
         ingest_result: IngestResult,
         file_bytes: bytes | None = None,
-    ) -> ExtractionResult:
+    ) -> ExtractionResult[Any]:
         """Run the full agentic extraction pipeline."""
         start = time.time()
         audit = ExtractionAudit(
@@ -268,18 +268,18 @@ class AgenticExtractor:
             for provider in self.extraction_providers
         ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        gather_results: list[RawExtraction | BaseException] = await asyncio.gather(*tasks, return_exceptions=True)
 
-        extractions = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
+        extractions: list[RawExtraction] = []
+        for i, r in enumerate(gather_results):
+            if isinstance(r, BaseException):
                 provider_name = self.extraction_providers[i].provider_name
-                logger.error(f"Provider {provider_name} failed: {result}")
+                logger.error(f"Provider {provider_name} failed: {r}")
                 extractions.append(
-                    RawExtraction(provider=provider_name, error=str(result))
+                    RawExtraction(provider=provider_name, error=str(r))
                 )
             else:
-                extractions.append(result)
+                extractions.append(r)
 
         return extractions
 
@@ -291,14 +291,14 @@ class AgenticExtractor:
             provider.extract_key_values(file_bytes, schema)
             for provider in self.ocr_providers
         ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        ocr_gather_results: list[RawExtraction | BaseException] = await asyncio.gather(*tasks, return_exceptions=True)
 
-        extractions = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"OCR provider failed: {result}")
+        extractions: list[RawExtraction] = []
+        for i, r in enumerate(ocr_gather_results):
+            if isinstance(r, BaseException):
+                logger.error(f"OCR provider failed: {r}")
             else:
-                extractions.append(result)
+                extractions.append(r)
 
         return extractions
 

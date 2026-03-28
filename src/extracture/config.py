@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic_settings import BaseSettings
 
 
@@ -60,5 +62,5 @@ class ExtractureConfig(BaseSettings):
     log_raw_responses: bool = False
 
 
-def get_config(**overrides: object) -> ExtractureConfig:
+def get_config(**overrides: Any) -> ExtractureConfig:
     return ExtractureConfig(**overrides)

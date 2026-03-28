@@ -168,8 +168,8 @@ class LiteLLMProvider(ExtractionProvider):
                 response_format={"type": "json_object"},
             )
 
-            content = response.choices[0].message.content or "{}"
-            parsed = self._parse_json_response(content)
+            reexam_content: str = response.choices[0].message.content or "{}"
+            parsed = self._parse_json_response(reexam_content)
             fields = self._parse_tool_response(parsed, schema) if parsed else {}
 
             return RawExtraction(
@@ -276,7 +276,8 @@ class LiteLLMProvider(ExtractionProvider):
             text = "\n".join(lines)
 
         try:
-            return json.loads(text)
+            result: dict[str, Any] = json.loads(text)
+            return result
         except json.JSONDecodeError:
             pass
 
@@ -285,7 +286,8 @@ class LiteLLMProvider(ExtractionProvider):
             open_braces = text.count("{") - text.count("}")
             open_brackets = text.count("[") - text.count("]")
             repaired = text + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
-            return json.loads(repaired)
+            result = json.loads(repaired)
+            return result
         except json.JSONDecodeError:
             pass
 
@@ -299,7 +301,8 @@ class LiteLLMProvider(ExtractionProvider):
                 elif c == "}":
                     depth -= 1
                 if depth == 0:
-                    return json.loads(text[start : i + 1])
+                    result = json.loads(text[start : i + 1])
+                    return result
         except (ValueError, json.JSONDecodeError):
             pass
 

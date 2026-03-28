@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 from extracture.config import ExtractureConfig, get_config
 
@@ -25,7 +26,7 @@ class QualityAssessment:
     noise_level: float = 0.0
     is_photo: bool = False
     needs_preprocessing: bool = False
-    details: dict = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class Preprocessor:
@@ -103,14 +104,14 @@ class Preprocessor:
         try:
             from PIL import Image
 
-            img = Image.open(io.BytesIO(image_bytes))
+            img: Image.Image = Image.open(io.BytesIO(image_bytes))
             steps: list[str] = []
 
             # 1. Deskew (highest impact: 5-10% accuracy gain)
             if abs(quality.skew_angle) > self.config.skew_correction_threshold:
                 img = img.rotate(
                     -quality.skew_angle,
-                    resample=Image.BICUBIC,
+                    resample=Image.Resampling.BICUBIC,
                     expand=True,
                     fillcolor="white" if img.mode == "RGB" else 255,
                 )
@@ -121,7 +122,7 @@ class Preprocessor:
             if quality.estimated_dpi < self.config.min_dpi_threshold:
                 scale = 300 / max(quality.estimated_dpi, 72)
                 new_size = (int(img.width * scale), int(img.height * scale))
-                img = img.resize(new_size, Image.LANCZOS)
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
                 steps.append(f"upscale({quality.estimated_dpi}→300dpi)")
                 logger.debug(f"Upscaled from ~{quality.estimated_dpi} to ~300 DPI")
 
@@ -150,7 +151,7 @@ class Preprocessor:
             logger.warning(f"Preprocessing failed: {e}, returning original")
             return image_bytes, []
 
-    def _detect_skew(self, gray_array) -> float:
+    def _detect_skew(self, gray_array: Any) -> float:
         """Detect document skew angle using projection profile method."""
         try:
             import numpy as np
@@ -186,7 +187,7 @@ class Preprocessor:
         except Exception:
             return 0.0
 
-    def _apply_clahe(self, img):
+    def _apply_clahe(self, img: Any) -> Any:
         """Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)."""
         try:
             import numpy as np

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 from extracture.config import ExtractureConfig, get_config
 from extracture.models import ExtractionResult, FieldResult, ReviewDecision
@@ -44,7 +45,7 @@ class HITLRouter:
     def __init__(self, config: ExtractureConfig | None = None):
         self.config = config or get_config()
 
-    def route(self, result: ExtractionResult) -> ReviewQueue:
+    def route(self, result: ExtractionResult[Any]) -> ReviewQueue:
         """Determine which fields need human review."""
         items: list[ReviewItem] = []
 
