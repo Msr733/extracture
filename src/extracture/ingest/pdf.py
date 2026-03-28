@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import io
 import json
 import logging
 import subprocess
@@ -87,7 +86,7 @@ class PDFParser:
     def get_page_count(self, file_bytes: bytes) -> int:
         try:
             result = self._run_worker("page_count", file_bytes)
-            return result.get("count", 0)
+            return int(result.get("count", 0))
         except PDFProcessingError:
             return 0
 
@@ -139,7 +138,7 @@ class PDFParser:
             if envelope.get("status") == "error":
                 raise PDFProcessingError(f"PDF worker error: {envelope.get('message')}")
 
-            return envelope.get("data", {})
+            return dict(envelope.get("data", {}))
 
         except subprocess.TimeoutExpired:
             raise PDFProcessingError(

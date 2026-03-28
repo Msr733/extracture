@@ -5,18 +5,10 @@ from pydantic import BaseModel, Field
 
 from extracture.models import (
     BoundingBox,
-    CorrectionRecord,
-    ExtractionAudit,
-    ExtractionMethod,
     ExtractionResult,
     ExtractionStatus,
     FieldResult,
-    IngestResult,
-    PageDimensions,
     RawExtraction,
-    ReviewDecision,
-    SourceDetail,
-    ValidationError,
     WordPosition,
 )
 

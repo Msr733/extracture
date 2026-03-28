@@ -7,9 +7,10 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="extracture",
         description="Extract structured data from documents with high accuracy.",
@@ -94,7 +95,7 @@ def main():
     )
 
 
-def _import_schema(path: str):
+def _import_schema(path: str) -> type[Any] | None:
     """Import a Pydantic model from a dotted path like 'module:ClassName'."""
     try:
         if ":" in path:
@@ -109,7 +110,8 @@ def _import_schema(path: str):
         import importlib
 
         module = importlib.import_module(module_path)
-        return getattr(module, class_name)
+        cls: type[Any] = getattr(module, class_name)
+        return cls
     except (ImportError, AttributeError) as e:
         print(f"Error importing schema: {e}", file=sys.stderr)
         return None

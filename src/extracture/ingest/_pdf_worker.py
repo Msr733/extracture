@@ -9,25 +9,26 @@ Usage: python _pdf_worker.py <operation> <input_path> <output_path> [params_json
 from __future__ import annotations
 
 import base64
-import io
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 # Remove own directory from path to avoid shadowing stdlib
 own_dir = str(Path(__file__).parent)
 sys.path = [p for p in sys.path if p != own_dir]
 
 
-def extract_text(input_path: str) -> dict:
+def extract_text(input_path: str) -> dict[str, Any]:
     import fitz  # PyMuPDF
 
     doc = fitz.open(input_path)
     page_count = len(doc)
 
     all_text_parts: list[str] = []
-    word_positions: list[dict] = []
-    page_dims: list[dict] = []
+    word_positions: list[dict[str, Any]] = []
+    page_dims: list[dict[str, Any]] = []
 
     for page_num in range(page_count):
         page = doc[page_num]
@@ -65,7 +66,7 @@ def extract_text(input_path: str) -> dict:
     }
 
 
-def render_pages(input_path: str, params: dict) -> dict:
+def render_pages(input_path: str, params: dict[str, Any]) -> dict[str, Any]:
     import fitz
 
     max_pages = params.get("max_pages", 50)
@@ -87,7 +88,7 @@ def render_pages(input_path: str, params: dict) -> dict:
     return {"images": images, "page_count": page_count}
 
 
-def page_count(input_path: str) -> dict:
+def page_count(input_path: str) -> dict[str, Any]:
     import fitz
 
     doc = fitz.open(input_path)
@@ -96,14 +97,14 @@ def page_count(input_path: str) -> dict:
     return {"count": count}
 
 
-OPERATIONS = {
+OPERATIONS: dict[str, Callable[[str, dict[str, Any]], dict[str, Any]]] = {
     "extract_text": lambda inp, params: extract_text(inp),
     "render_pages": render_pages,
     "page_count": lambda inp, params: page_count(inp),
 }
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 4:
         print("Usage: _pdf_worker.py <operation> <input_path> <output_path> [params_json]", file=sys.stderr)
         sys.exit(1)
@@ -114,10 +115,10 @@ def main():
     params = json.loads(sys.argv[4]) if len(sys.argv) > 4 else {}
 
     if operation not in OPERATIONS:
-        result = {"status": "error", "message": f"Unknown operation: {operation}"}
+        result: dict[str, Any] = {"status": "error", "message": f"Unknown operation: {operation}"}
     else:
         try:
-            data = OPERATIONS[operation](input_path, params)
+            data: dict[str, Any] = OPERATIONS[operation](input_path, params)
             result = {"status": "ok", "data": data}
         except Exception as e:
             result = {"status": "error", "message": str(e)}

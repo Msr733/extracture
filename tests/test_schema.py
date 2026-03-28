@@ -1,7 +1,7 @@
 """Tests for schema introspection and prompt building."""
 
-import pytest
 from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 from extracture.schema import CrossFieldRule, ExtractionSchema, FieldAnchor

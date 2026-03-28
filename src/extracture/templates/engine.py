@@ -30,7 +30,7 @@ class TemplateExtractor:
         schema: ExtractionSchema,
         text_content: str | None,
         word_positions: list[WordPosition],
-        page_dims: list[dict] | None = None,
+        page_dims: list[dict[str, Any]] | None = None,
     ) -> dict[str, FieldResult]:
         """Extract fields using template anchors."""
         if not schema.has_template:

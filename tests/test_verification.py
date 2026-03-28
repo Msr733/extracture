@@ -1,14 +1,11 @@
 """Tests for verification layer — grounding, calibration, validation."""
 
-import math
 
-import pytest
 
 from extracture.verification.calibration import ConfidenceCalibrator
 from extracture.verification.grounding import GroundingVerifier
 from extracture.verification.validator import (
     CrossFieldValidator,
-    date_not_future_rule,
     required_fields_rule,
     sum_equals_rule,
 )

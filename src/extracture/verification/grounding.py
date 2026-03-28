@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from rapidfuzz import fuzz
 
@@ -82,11 +83,11 @@ class GroundingVerifier:
 
     def verify_all_fields(
         self,
-        fields: dict[str, any],
+        fields: dict[str, Any],
         document_text: str,
     ) -> dict[str, GroundingResult]:
         """Verify all fields against the document text."""
-        results = {}
+        results: dict[str, GroundingResult] = {}
         for field_name, field_result in fields.items():
             value = field_result.value if hasattr(field_result, "value") else field_result
             source_quote = (
@@ -227,7 +228,9 @@ class GroundingVerifier:
             context = self._find_context_window(source_quote or value, document_text, window=200)
 
             hypothesis = f"The {field_name.replace('_', ' ')} is {value}"
-            result = self._nli_model(
+            nli_fn = self._nli_model
+            assert nli_fn is not None
+            result = nli_fn(
                 f"{context} [SEP] {hypothesis}",
                 top_k=3,
             )

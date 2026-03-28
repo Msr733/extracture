@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from extracture.config import ExtractureConfig
 from extracture.providers.base import ExtractionProvider, OCRProvider
@@ -47,14 +46,14 @@ class ProviderRegistry:
             spec = spec.strip()
 
             if spec.lower() in OCR_PROVIDERS:
-                provider = self._create_ocr_provider(spec, api_keys)
-                if provider:
-                    ocr_providers.append(provider)
+                ocr_provider = self._create_ocr_provider(spec, api_keys)
+                if ocr_provider:
+                    ocr_providers.append(ocr_provider)
                 continue
 
-            provider = self._create_llm_provider(spec, api_keys)
-            if provider:
-                extraction_providers.append(provider)
+            llm_provider = self._create_llm_provider(spec, api_keys)
+            if llm_provider:
+                extraction_providers.append(llm_provider)
 
         return extraction_providers, ocr_providers
 

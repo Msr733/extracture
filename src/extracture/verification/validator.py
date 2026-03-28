@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -25,9 +26,9 @@ PHONE_PATTERN = re.compile(r"^[\d\-\(\)\s\+\.]{7,20}$")
 class CrossFieldValidator:
     """Validates extracted data using cross-field rules and format checks."""
 
-    def __init__(self):
-        self.rules: list[tuple[str, list[str], Callable, str]] = []
-        self.format_rules: dict[str, re.Pattern] = {}
+    def __init__(self) -> None:
+        self.rules: list[tuple[str, list[str], Callable[..., str | None], str]] = []
+        self.format_rules: dict[str, re.Pattern[str]] = {}
 
     def add_rule(
         self,
@@ -39,7 +40,7 @@ class CrossFieldValidator:
         """Add a cross-field validation rule."""
         self.rules.append((name, fields, check, severity))
 
-    def add_format_rule(self, field_name: str, pattern: re.Pattern) -> None:
+    def add_format_rule(self, field_name: str, pattern: re.Pattern[str]) -> None:
         """Add a format validation rule for a specific field."""
         self.format_rules[field_name] = pattern
 
@@ -119,15 +120,15 @@ class CrossFieldValidator:
 
 
 # Pre-built validation rule sets
-def sum_equals_rule(total_field: str, *addend_fields: str):
+def sum_equals_rule(total_field: str, *addend_fields: str) -> tuple[str, list[str], Callable[..., str | None], str]:
     """Create a rule that checks if fields sum to a total."""
 
-    def check(fields):
+    def check(fields: Any) -> str | None:
         total = getattr(fields, total_field, None)
         if total is None:
             return None
 
-        addend_sum = 0
+        addend_sum: float = 0
         all_none = True
         for f in addend_fields:
             val = getattr(fields, f, None)
@@ -161,11 +162,11 @@ def sum_equals_rule(total_field: str, *addend_fields: str):
     )
 
 
-def date_not_future_rule(date_field: str):
+def date_not_future_rule(date_field: str) -> tuple[str, list[str], Callable[..., str | None], str]:
     """Create a rule that checks if a date is not in the future."""
     from datetime import date
 
-    def check(fields):
+    def check(fields: Any) -> str | None:
         value = getattr(fields, date_field, None)
         if value is None:
             return None
@@ -182,10 +183,10 @@ def date_not_future_rule(date_field: str):
     return (f"future_date_{date_field}", [date_field], check, "warning")
 
 
-def required_fields_rule(*field_names: str):
+def required_fields_rule(*field_names: str) -> tuple[str, list[str], Callable[..., str | None], str]:
     """Create a rule that checks required fields are present."""
 
-    def check(fields):
+    def check(fields: Any) -> str | None:
         missing = []
         for name in field_names:
             val = getattr(fields, name, None)

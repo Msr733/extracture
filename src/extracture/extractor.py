@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
 from extracture.agentic.extractor import AgenticExtractor
-from extracture.config import ExtractureConfig, get_config
+from extracture.config import get_config
 from extracture.consensus.engine import ConsensusEngine
 from extracture.correction.router import HITLRouter, ReviewQueue
 from extracture.correction.store import CorrectionStore
@@ -60,7 +61,7 @@ class Extractor:
         field_labels: dict[str, str] | None = None,
         field_sections: dict[str, list[str]] | None = None,
         # Validation
-        validation_rules: list[Callable | tuple] | None = None,
+        validation_rules: list[Callable[..., Any] | tuple[Any, ...]] | None = None,
         # Template anchors for known document types
         template_anchors: dict[str, FieldAnchor] | None = None,
         # Feature flags
@@ -147,7 +148,7 @@ class Extractor:
         if calibration_path and Path(calibration_path).exists():
             self._calibrator.load(calibration_path)
 
-        self._validator = CrossFieldValidator()
+        self._validator: CrossFieldValidator = CrossFieldValidator()
         self._validator.auto_detect_format_rules(self.schema.field_names)
 
         self._template_extractor = TemplateExtractor()
@@ -156,10 +157,11 @@ class Extractor:
         self._correction_store = CorrectionStore(correction_store_path) if enable_rag else None
 
         # Build ingest router (lazy import to avoid heavy deps at import time)
-        self._ingest_router = None
+        from extracture.ingest.router import IngestRouter
+        self._ingest_router: IngestRouter | None = None
         self._ocr_engine = ocr_engine
 
-    def extract(self, source: str | Path | bytes, file_type: str | None = None) -> ExtractionResult:
+    def extract(self, source: str | Path | bytes, file_type: str | None = None) -> ExtractionResult[Any]:
         """Extract structured data from a document.
 
         Args:
@@ -173,7 +175,7 @@ class Extractor:
 
     async def aextract(
         self, source: str | Path | bytes, file_type: str | None = None
-    ) -> ExtractionResult:
+    ) -> ExtractionResult[Any]:
         """Async version of extract."""
         # Lazy init ingest router
         if self._ingest_router is None:
@@ -189,7 +191,7 @@ class Extractor:
             file_bytes = Path(source).read_bytes()
 
         # Step 1: Ingest
-        logger.info(f"Ingesting document...")
+        logger.info("Ingesting document...")
         ingest_result = self._ingest_router.ingest(source, file_type)
 
         # Step 2: Try template extraction first (520x faster, 3700x cheaper)
@@ -234,7 +236,7 @@ class Extractor:
         sources: list[str | Path | bytes],
         file_types: list[str | None] | None = None,
         max_concurrent: int = 5,
-    ) -> list[ExtractionResult]:
+    ) -> list[ExtractionResult[Any]]:
         """Extract from multiple documents concurrently."""
         return asyncio.run(self._batch_extract(sources, file_types, max_concurrent))
 
@@ -243,22 +245,22 @@ class Extractor:
         sources: list[str | Path | bytes],
         file_types: list[str | None] | None,
         max_concurrent: int,
-    ) -> list[ExtractionResult]:
+    ) -> list[ExtractionResult[Any]]:
         types = file_types or [None] * len(sources)
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def extract_one(src, ft):
+        async def extract_one(src: str | Path | bytes, ft: str | None) -> ExtractionResult[Any]:
             async with semaphore:
                 return await self.aextract(src, ft)
 
         tasks = [extract_one(s, t) for s, t in zip(sources, types)]
-        return await asyncio.gather(*tasks, return_exceptions=False)
+        return list(await asyncio.gather(*tasks, return_exceptions=False))
 
-    def review(self, result: ExtractionResult) -> ReviewQueue:
+    def review(self, result: ExtractionResult[Any]) -> ReviewQueue:
         """Get the review queue for an extraction result."""
         return self._hitl_router.route(result)
 
-    def learn_from_corrections(self, result: ExtractionResult) -> None:
+    def learn_from_corrections(self, result: ExtractionResult[Any]) -> None:
         """Store corrections from a result for future RAG-based improvement."""
         if not self._correction_store:
             logger.warning("RAG not enabled. Set enable_rag=True to use corrections.")
@@ -286,8 +288,8 @@ class Extractor:
         self.schema.template_anchors.update(field_anchors)
 
     def _build_template_result(
-        self, fields: dict[str, FieldResult], ingest_result
-    ) -> ExtractionResult:
+        self, fields: dict[str, FieldResult], ingest_result: Any
+    ) -> ExtractionResult[Any]:
         """Build an ExtractionResult from template extraction."""
         from extracture.models import (
             ExtractionAudit,

@@ -1,12 +1,10 @@
 """Tests for correction store and HITL router."""
 
-import pytest
 
 from extracture.correction.router import HITLRouter, ReviewDecision
 from extracture.correction.store import CorrectionStore
 from extracture.models import (
     ExtractionResult,
-    ExtractionStatus,
     FieldResult,
     ValidationError,
 )

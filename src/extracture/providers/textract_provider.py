@@ -8,7 +8,7 @@ from typing import Any
 
 from rapidfuzz import fuzz
 
-from extracture.models import BoundingBox, FieldResult, IngestResult, RawExtraction
+from extracture.models import BoundingBox, FieldResult, RawExtraction
 from extracture.providers.base import OCRProvider
 from extracture.schema import ExtractionSchema
 
@@ -31,7 +31,7 @@ class TextractProvider(OCRProvider):
         self._region = aws_region
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         if self._client is None:
             import boto3
 
@@ -103,7 +103,7 @@ class TextractProvider(OCRProvider):
         )
 
     def _extract_key_value_pairs(
-        self, blocks: dict[str, dict]
+        self, blocks: dict[str, dict[str, Any]]
     ) -> list[tuple[str, str, float, float, BoundingBox | None, BoundingBox | None]]:
         """Extract key-value pairs from Textract blocks.
         Returns: [(key_text, value_text, key_confidence, value_confidence, key_bbox, value_bbox)]
@@ -147,7 +147,7 @@ class TextractProvider(OCRProvider):
 
         return pairs
 
-    def _get_text_from_block(self, block: dict, blocks: dict[str, dict]) -> str:
+    def _get_text_from_block(self, block: dict[str, Any], blocks: dict[str, dict[str, Any]]) -> str:
         """Get text from a block by traversing CHILD relationships."""
         words = []
         for rel in block.get("Relationships", []):
@@ -158,7 +158,7 @@ class TextractProvider(OCRProvider):
                         words.append(child.get("Text", ""))
         return " ".join(words)
 
-    def _block_to_bbox(self, block: dict) -> BoundingBox | None:
+    def _block_to_bbox(self, block: dict[str, Any]) -> BoundingBox | None:
         """Convert Textract block geometry to BoundingBox."""
         geo = block.get("Geometry", {}).get("BoundingBox")
         if not geo:

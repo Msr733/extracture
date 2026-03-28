@@ -1,16 +1,16 @@
 """Extracture — High-accuracy, schema-driven document extraction."""
 
+from extracture.extractor import Extractor
 from extracture.models import (
     BoundingBox,
     ExtractionMethod,
+    ExtractionResult,
     ExtractionStatus,
     FieldResult,
-    ExtractionResult,
     ReviewDecision,
     ValidationError,
 )
 from extracture.schema import ExtractionSchema, FieldAnchor
-from extracture.extractor import Extractor
 
 __version__ = "0.1.0"
 
