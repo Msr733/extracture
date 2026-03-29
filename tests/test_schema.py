@@ -61,7 +61,8 @@ class TestExtractionSchema:
         assert "input_schema" in tool
         props = tool["input_schema"]["properties"]
         assert "vendor_name" in props
-        assert "confidence" in props["vendor_name"]["properties"]
+        # Flat schema — field maps directly to type, no nested {value, confidence}
+        assert "type" in props["vendor_name"] or "description" in props["vendor_name"]
 
     def test_build_extraction_prompt_text(self):
         prompt = self.schema.build_extraction_prompt(text_content="Hello world", mode="text")

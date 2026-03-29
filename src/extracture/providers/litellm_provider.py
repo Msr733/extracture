@@ -53,12 +53,19 @@ class LiteLLMProvider(ExtractionProvider):
         self.temperature = temperature
         self.provider_name = model
 
+        # Base kwargs passed to every litellm call (skip None values)
+        self._base_kwargs: dict[str, Any] = {"model": model}
+        if api_key:
+            self._base_kwargs["api_key"] = api_key
+        if api_base:
+            self._base_kwargs["api_base"] = api_base
+
     async def extract(
         self,
         schema: ExtractionSchema,
         ingest_result: IngestResult,
     ) -> RawExtraction:
-        """Extract using LLM — vision and/or text modes."""
+        """Extract using LLM — JSON mode with vision/text."""
         import litellm
 
         start = time.time()
@@ -67,43 +74,87 @@ class LiteLLMProvider(ExtractionProvider):
         cost = 0.0
 
         try:
-            # Build messages based on available data and capabilities
             messages = self._build_messages(schema, ingest_result)
 
-            # Use tool/function calling for structured output when possible
-            tools = [schema.build_tool_schema()]
-            tool_name = tools[0]["name"]
+            # Try tool calling first, fall back to JSON mode
+            response = None
+            tool_call_failed = False
 
-            response = await litellm.acompletion(
-                model=self.model,
-                messages=messages,
-                tools=[{"type": "function", "function": t} for t in tools],
-                tool_choice={"type": "function", "function": {"name": tool_name}},
-                temperature=self.temperature,
-                max_tokens=schema.max_tokens,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                timeout=self.config.provider_timeout_seconds,
-            )
+            try:
+                tools = [schema.build_tool_schema()]
+                tool_name = tools[0]["name"]
 
-            # Parse response
-            raw_response = str(response)
-            tool_calls = response.choices[0].message.tool_calls
+                response = await litellm.acompletion(
+                    **self._base_kwargs,
+                    messages=messages,
+                    tools=[{"type": "function", "function": t} for t in tools],
+                    tool_choice={"type": "function", "function": {"name": tool_name}},
+                    temperature=self.temperature,
+                    max_tokens=schema.max_tokens,
+                    timeout=self.config.provider_timeout_seconds,
+                )
 
-            if tool_calls:
-                tool_args = json.loads(tool_calls[0].function.arguments)
-                fields = self._parse_tool_response(tool_args, schema)
-            else:
-                # Fallback: parse from message content
+                tool_calls = response.choices[0].message.tool_calls
+                if tool_calls:
+                    tool_args = json.loads(tool_calls[0].function.arguments)
+                    if tool_args:  # Not empty {}
+                        fields = self._parse_tool_response(tool_args, schema)
+                    else:
+                        logger.warning(f"Tool call returned empty args for {self.model}")
+                        tool_call_failed = True
+                else:
+                    tool_call_failed = True
+            except Exception as tool_err:
+                logger.warning(
+                    f"Tool calling failed for {self.model}, "
+                    f"falling back to JSON mode: {tool_err}"
+                )
+                tool_call_failed = True
+
+            # Check if we got actual values (not just null placeholders)
+            has_values = any(
+                f.value is not None for f in fields.values()
+            ) if fields else False
+
+            # Fallback: JSON mode (works with all providers)
+            if tool_call_failed or not has_values:
+                logger.info(f"Using JSON mode fallback for {self.model}")
+                try:
+                    response = await litellm.acompletion(
+                        **self._base_kwargs,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=schema.max_tokens,
+                        timeout=self.config.provider_timeout_seconds,
+                        response_format={"type": "json_object"},
+                    )
+                except Exception:
+                    # Some models don't support response_format, try plain
+                    response = await litellm.acompletion(
+                        **self._base_kwargs,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=schema.max_tokens,
+                        timeout=self.config.provider_timeout_seconds,
+                    )
+
                 content = response.choices[0].message.content or ""
+                raw_response = content[:2000]
                 parsed = self._parse_json_response(content)
                 if parsed:
                     fields = self._parse_tool_response(parsed, schema)
+                else:
+                    logger.error(f"Failed to parse JSON from {self.model}: {content[:500]}")
 
             # Calculate cost
-            usage = response.usage
-            if usage:
-                cost = self.get_cost_estimate(usage.prompt_tokens, usage.completion_tokens)
+            if response and response.usage:
+                cost = self.get_cost_estimate(response.usage.prompt_tokens, response.usage.completion_tokens)
+
+            # Log raw response for debugging if no fields extracted
+            if not any(f.value is not None for f in fields.values()):
+                if raw_response is None and response:
+                    raw_response = str(response)[:2000]
+                logger.warning(f"No fields extracted from {self.model}. Raw: {(raw_response or 'none')[:500]}")
 
         except Exception as e:
             logger.error(f"Extraction failed with {self.model}: {e}", exc_info=True)
@@ -115,7 +166,9 @@ class LiteLLMProvider(ExtractionProvider):
 
         duration_ms = (time.time() - start) * 1000
         logger.info(
-            f"{self.model}: extracted {len(fields)} fields in {duration_ms:.0f}ms (${cost:.4f})"
+            f"{self.model}: extracted "
+            f"{len([f for f in fields.values() if f.value is not None])} "
+            f"non-null fields in {duration_ms:.0f}ms (${cost:.4f})"
         )
 
         return RawExtraction(
@@ -158,12 +211,10 @@ class LiteLLMProvider(ExtractionProvider):
 
         try:
             response = await litellm.acompletion(
-                model=self.model,
+                **self._base_kwargs,
                 messages=messages,
                 temperature=0.0,
                 max_tokens=2048,
-                api_key=self.api_key,
-                api_base=self.api_base,
                 timeout=self.config.provider_timeout_seconds,
                 response_format={"type": "json_object"},
             )
@@ -231,7 +282,21 @@ class LiteLLMProvider(ExtractionProvider):
     def _parse_tool_response(
         self, raw: dict[str, Any], schema: ExtractionSchema
     ) -> dict[str, FieldResult]:
-        """Parse tool call response into FieldResult objects."""
+        """Parse tool call response into FieldResult objects.
+
+        Handles multiple response formats:
+        - Nested: {"field": {"value": x, "confidence": 0.9}}
+        - Flat: {"field": "value"}
+        - Wrapped: {"fields": {...}} or {"data": {...}}
+        """
+        # Unwrap if LLM wrapped in a top-level key
+        if "fields" in raw and isinstance(raw["fields"], dict):
+            raw = raw["fields"]
+        elif "data" in raw and isinstance(raw["data"], dict):
+            raw = raw["data"]
+        elif "extracted_data" in raw and isinstance(raw["extracted_data"], dict):
+            raw = raw["extracted_data"]
+
         fields: dict[str, FieldResult] = {}
 
         for field_name in schema.field_names:
@@ -256,10 +321,17 @@ class LiteLLMProvider(ExtractionProvider):
                     sources=[],
                 )
             else:
-                # Direct value (no confidence wrapper)
+                # Direct value (no confidence wrapper) — LLM returned flat JSON
+                value = field_data
+                # Assign reasonable confidence for non-null values
+                confidence = 0.85 if value is not None and str(value).strip() else 0.0
+                if not str(value).strip():
+                    value = None
+                    confidence = 0.0
+
                 fields[field_name] = FieldResult(
-                    value=field_data,
-                    confidence=0.5,
+                    value=value,
+                    confidence=confidence,
                 )
 
         return fields
