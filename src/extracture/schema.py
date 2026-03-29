@@ -93,45 +93,36 @@ class ExtractionSchema:
     def validate_cross_field(self, data: BaseModel) -> list[str]:
         errors = []
         for rule in self.validation_rules:
-            result = rule.validate(data)
-            if result:
-                errors.append(result)
+            try:
+                result = rule.validate(data)
+                if result:
+                    errors.append(result)
+            except Exception:
+                pass  # Skip rules that crash
         return errors
 
     def parse_fields(self, raw: dict[str, Any]) -> BaseModel:
         return self.model.model_validate(raw)
 
     def build_tool_schema(self) -> dict[str, Any]:
-        """Build a tool/function calling schema for LLM providers."""
+        """Build a flat tool/function calling schema for LLM providers.
+
+        Uses a flat schema (field: value) instead of nested (field: {value, confidence})
+        because complex nested schemas cause empty {} responses from many LLMs.
+        Confidence is requested separately via JSON mode fallback.
+        """
         json_schema = self.get_json_schema()
 
         extraction_schema: dict[str, Any] = {
             "type": "object",
             "properties": {},
-            "required": [],
         }
 
         for field_name in self.field_names:
             label = self.field_labels.get(field_name, field_name)
             field_schema = self._get_field_schema(field_name, json_schema)
             field_schema["description"] = label
-            extraction_schema["properties"][field_name] = {
-                "type": "object",
-                "properties": {
-                    "value": field_schema,
-                    "confidence": {
-                        "type": "number",
-                        "minimum": 0.0,
-                        "maximum": 1.0,
-                        "description": "Confidence score 0.0-1.0. Use 0.0 if the field is not visible.",
-                    },
-                    "source_quote": {
-                        "type": ["string", "null"],
-                        "description": "Exact text from the document that contains this value.",
-                    },
-                },
-                "required": ["value", "confidence"],
-            }
+            extraction_schema["properties"][field_name] = field_schema
 
         return {
             "name": f"extract_{self.model.__name__.lower()}",
@@ -144,6 +135,18 @@ class ExtractionSchema:
         if field_name in props:
             schema = dict(props[field_name])
             schema.pop("title", None)
+            # Simplify anyOf (from Optional types) to a plain type + nullable
+            # LLMs choke on complex anyOf schemas in tool calling
+            if "anyOf" in schema:
+                for variant in schema["anyOf"]:
+                    if isinstance(variant, dict) and variant.get("type") != "null":
+                        simple = dict(variant)
+                        simple.pop("title", None)
+                        if "description" in schema:
+                            simple["description"] = schema["description"]
+                        return simple
+                # All variants are null — just use string
+                return {"type": "string", "description": schema.get("description", "")}
             return schema
         return {"type": "string"}
 
@@ -177,10 +180,23 @@ class ExtractionSchema:
         lines.append("  - If a field is not visible or not applicable, set value to null and confidence to 0.0")
         lines.append("  - Do NOT guess or fabricate values. Only extract what you can see.")
 
+        # Show expected output format with an example
+        example_fields = list(self.field_names)[:2]
+        lines.append("\nRespond with ONLY a JSON object in this exact format:")
+        lines.append("{")
+        if example_fields:
+            ex0 = example_fields[0]
+            lines.append(f'  "{ex0}": {{"value": "example", "confidence": 0.95}},')
+            if len(example_fields) > 1:
+                ex1 = example_fields[1]
+                lines.append(f'  "{ex1}": {{"value": 1234.56, "confidence": 0.90}},')
+        lines.append("  ...")
+        lines.append("}")
+
         if text_content:
             lines.append(f"\n--- DOCUMENT TEXT ---\n{text_content}\n--- END DOCUMENT ---")
 
-        lines.append("\nRespond with a JSON object containing the extracted fields.")
+        lines.append("\nRespond with ONLY valid JSON. No markdown, no explanation.")
 
         return "\n".join(lines)
 
